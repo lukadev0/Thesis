@@ -23,8 +23,8 @@ while capture.isOpened():
     success, image = capture.read()
     if not success:
         print("Ignoring empty camera frame.")
-        continue
-
+        break
+    
     # Conversione dell'immagine in RGB
     image = cv2.cvtColor(cv2.flip(image, 1), cv2.COLOR_BGR2RGB)  # Immagine specchiata
     image.flags.writeable = False
