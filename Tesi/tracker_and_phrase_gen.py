@@ -9,11 +9,25 @@ def is_right_hand(landmarks, mirrored=True):
     else:
         return landmarks[mp_hands.HandLandmark.THUMB_TIP].x > landmarks[mp_hands.HandLandmark.WRIST].x
 
+
+# Così controllo e inserisco lo spazio 
+def is_hand_open(landmarks_dict):
+    tips = [mp_hands.HandLandmark.INDEX_FINGER_TIP, mp_hands.HandLandmark.MIDDLE_FINGER_TIP, 
+            mp_hands.HandLandmark.RING_FINGER_TIP, mp_hands.HandLandmark.PINKY_TIP]
+    mcps = [mp_hands.HandLandmark.INDEX_FINGER_MCP, mp_hands.HandLandmark.MIDDLE_FINGER_MCP,
+            mp_hands.HandLandmark.RING_FINGER_MCP, mp_hands.HandLandmark.PINKY_MCP]
+    
+    fingers_up = all(landmarks_dict[tip].y < landmarks_dict[mcp].y - 0.1 for tip, mcp in zip(tips, mcps))
+    fingers_spread = all(abs(landmarks_dict[tips[i]].x - landmarks_dict[tips[i+1]].x) > 0.04 for i in range(len(tips)-1))
+    thumb_up = landmarks_dict[mp_hands.HandLandmark.THUMB_TIP].y < landmarks_dict[mp_hands.HandLandmark.THUMB_MCP].y
+    
+    return fingers_up and fingers_spread and thumb_up
+
+
 # Inizializzazione MediaPipe Hands
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(static_image_mode=False, max_num_hands=2, min_detection_confidence=0.7)
 mp_drawing = mp.solutions.drawing_utils
-
 
 last_letter = ""
 letter_start_time = 0
@@ -21,21 +35,23 @@ saved_letters = []
 hand_detection_start_time = None
 two_hands_start_time = None
 
-LETTER_SAVE_DELAY = 3  
+space_start_time = None
+waiting_for_space = False
+
+LETTER_SAVE_DELAY = 1.5  
 HAND_DETECTION_DELAY = 1.5
-RESET_DELAY = 2  
+RESET_DELAY = 2
+SPACE_DELAY = 1.2  
 
 phrase_shown = False  
 is_resetting = False  
 current_phrase = ""  
 detection_started = False  
 
-
 capture = cv2.VideoCapture(0)
 capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)  
 capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-
 
 while capture.isOpened():
     success, image = capture.read()
@@ -43,7 +59,7 @@ while capture.isOpened():
         print("Ignoring empty camera frame.")
         break
     
-    #Conversione dell'immagine in RGB
+    # Conversione dell'immagine in RGB
     image = cv2.cvtColor(cv2.flip(image, 1), cv2.COLOR_BGR2RGB)
     image.flags.writeable = False
     results = hands.process(image)
@@ -52,10 +68,9 @@ while capture.isOpened():
 
     current_time = time.time()
     
-    #Controllo se ci sono due mani (per il reset)
-    if results.multi_hand_landmarks and len(results.multi_hand_landmarks) == 2:
-        
-        if not is_resetting:
+   
+    if results.multi_hand_landmarks and len(results.multi_hand_landmarks) == 2:  # Controllo se ci sono due mani (per il reset)
+        if not is_resetting: 
             two_hands_start_time = current_time
             is_resetting = True
         
@@ -65,22 +80,23 @@ while capture.isOpened():
             current_phrase = ""
             phrase_shown = False
             is_resetting = False
+            
             two_hands_start_time = None
             detection_started = False
             hand_detection_start_time = None
+            
+
+            space_start_time = None
+            waiting_for_space = False
         
         else: #Parte il countdown per il reset
-            
             time_left = RESET_DELAY - (current_time - two_hands_start_time)
-            cv2.putText(image, f"Reset in: {time_left:.1f}s", (10, 50),
-                       cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+            cv2.putText(image, f"Reset in: {time_left:.1f}s", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
         
-       
-        if current_phrase:  #Continua a mostrare frase corrente
+        if current_phrase:  
             cv2.putText(image, f"Frase Corrente: {current_phrase}", (10, 150),
                        cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
             
-   
     elif results.multi_hand_landmarks and len(results.multi_hand_landmarks) == 1:  #Se c'è una mano
         is_resetting = False
         two_hands_start_time = None
@@ -91,45 +107,65 @@ while capture.isOpened():
             
             time_left = HAND_DETECTION_DELAY - (current_time - hand_detection_start_time)
             if time_left > 0:
-                cv2.putText(image, f"Inizio riconoscimento in: {time_left:.1f}s", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA) # Mostro il countdown per l'inizio del riconoscimento
+                cv2.putText(image, f"Inizio riconoscimento in: {time_left:.1f}s", (10, 50),
+                           cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA) # Mostro il countdown per l'inizio del riconoscimento
             else:
                 detection_started = True
                 
         if detection_started and not phrase_shown:
+            hand_landmarks = results.multi_hand_landmarks[0]
+            mp_drawing.draw_landmarks(image, hand_landmarks, mp_hands.HAND_CONNECTIONS) #Disegno dei landmark della mano
+            landmarks_dict = {l: hand_landmarks.landmark[l.value] for l in mp_hands.HandLandmark}
             
-            for hand_landmarks in results.multi_hand_landmarks:
+            # Controllo se la mano è aperta per inserire uno spazio
+            if is_hand_open(landmarks_dict):
                 
-                mp_drawing.draw_landmarks(image, hand_landmarks, mp_hands.HAND_CONNECTIONS) #Disegno dei landmark della mano
-                landmarks_dict = {l: hand_landmarks.landmark[l.value] for l in mp_hands.HandLandmark}
+                if not waiting_for_space:
+                    space_start_time = current_time
+                    waiting_for_space = True
+                
+                elif current_time - space_start_time >= SPACE_DELAY:
+                    
+                    if not saved_letters or saved_letters[-1] != " ":  # Prevengo spazi multipli
+                        saved_letters.append(" ")
+                    
+                    waiting_for_space = False
+                    space_start_time = None
+                
+                else:
+                    time_left = SPACE_DELAY - (current_time - space_start_time)
+                    cv2.putText(image, f"Spazio in: {time_left:.1f}s", (10, 200), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+            
+            else:
+                waiting_for_space = False
+                space_start_time = None
                 current_letter = recognize_letter(landmarks_dict)
                 
                 if current_letter != last_letter:  #Se la lettera è cambiata si resetta il timer
                     letter_start_time = current_time
                     last_letter = current_letter
-
+                
                 elif current_letter and (current_time - letter_start_time >= LETTER_SAVE_DELAY):
+                    
                     if not saved_letters or saved_letters[-1] != current_letter:
                         saved_letters.append(current_letter)
                         letter_start_time = current_time
                 
                 if current_letter:
-                    time_left = max(0, LETTER_SAVE_DELAY - (current_time - letter_start_time)) 
+                    time_left = max(0, LETTER_SAVE_DELAY - (current_time - letter_start_time))
                     
                     cv2.putText(image, f"Lettera: {current_letter} ({time_left:.1f}s)", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
                     
                     cv2.putText(image, f"Lettere Salvate: {''.join(saved_letters)}", (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
         
-        
         if current_phrase:
             cv2.putText(image, f"Frase/Parola Composta: {current_phrase}", (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA) # mostro la frase composta
-    
     
     else:  #Se non ci sono mani
         is_resetting = False
         two_hands_start_time = None
         
         if detection_started and saved_letters and not phrase_shown:  #Salvo e mostro la lettera composta
-            
             current_phrase = "".join(saved_letters)
             phrase_shown = True
             detection_started = False
