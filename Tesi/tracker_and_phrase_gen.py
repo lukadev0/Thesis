@@ -146,8 +146,6 @@ while capture.isOpened():
                     last_letter = current_letter
                 
                 elif current_letter and (current_time - letter_start_time >= LETTER_SAVE_DELAY):
-                    
-                    if not saved_letters or saved_letters[-1] != current_letter:
                         saved_letters.append(current_letter)
                         letter_start_time = current_time
                 
@@ -159,7 +157,7 @@ while capture.isOpened():
                     cv2.putText(image, f"Lettere Salvate: {''.join(saved_letters)}", (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
         
         if current_phrase:
-            cv2.putText(image, f"Frase/Parola Composta: {current_phrase}", (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA) # mostro la frase composta
+            cv2.putText(image, f"Frase Composta: {current_phrase}", (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA) # mostro la frase composta
     
     else:  #Se non ci sono mani
         is_resetting = False
