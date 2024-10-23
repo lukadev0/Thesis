@@ -73,8 +73,11 @@ def is_B(landmarks):
     thumb_lower = (thumb_tip.y > index_tip.y)
     fingers_up = all(tip.y < wrist.y for tip in [index_tip, middle_tip, ring_tip, pinky_tip])
     thumb_not_folded = get_distance(thumb_tip, wrist) > get_distance(landmarks[THUMB_MCP], wrist)
+    
+    thumb_bent = get_distance(thumb_tip, landmarks[INDEX_FINGER_MCP]) < 0.1
 
-    return (fingers_straight and fingers_close and thumb_lower and fingers_up and thumb_not_folded)
+    return (fingers_straight and fingers_close and thumb_lower and 
+            fingers_up and thumb_not_folded and thumb_bent)
 
 def is_C(landmarks):
     thumb_tip = landmarks[THUMB_TIP]
@@ -110,11 +113,7 @@ def is_C(landmarks):
     
     thumb_index_condition = 0.08 < thumb_index_distance < 0.25
     
-    return (thumb_index_condition and 
-            fingers_curved and 
-            thumb_position and 
-            fingers_aligned and 
-            fingers_grouped)
+    return (thumb_index_condition and fingers_curved and thumb_position and fingers_aligned and fingers_grouped)
 
 def is_D(landmarks):
     index_straight = finger_is_straight(landmarks, INDEX_FINGER_MCP, INDEX_FINGER_PIP, INDEX_FINGER_TIP)
@@ -161,18 +160,19 @@ def is_G(landmarks):
     index_straight = finger_is_straight(landmarks, INDEX_FINGER_MCP, INDEX_FINGER_PIP, INDEX_FINGER_TIP) 
     
     
-    thumb_on_middle = get_distance(landmarks[THUMB_TIP], landmarks[MIDDLE_FINGER_TIP]) < 0.09
+    thumb_on_middle = get_distance(landmarks[THUMB_TIP], landmarks[MIDDLE_FINGER_TIP]) < 0.1
     
     middle_curled = finger_is_curled(landmarks, MIDDLE_FINGER_MCP, MIDDLE_FINGER_PIP, MIDDLE_FINGER_TIP)
     ring_curled = finger_is_curled(landmarks, RING_FINGER_MCP, RING_FINGER_PIP, RING_FINGER_TIP)
     pinky_curled = finger_is_curled(landmarks, PINKY_MCP, PINKY_PIP, PINKY_TIP)
     
     index_horizontal = (abs(index_tip.y - landmarks[INDEX_FINGER_MCP].y) < 0.1 and 
-                       abs(index_tip.x - landmarks[INDEX_FINGER_MCP].x) > 0.15)
+                       abs(index_tip.x - landmarks[INDEX_FINGER_MCP].x) > 0.12)
 
     return (index_straight and thumb_on_middle and middle_curled and ring_curled and pinky_curled and index_horizontal)
 
 def is_H(landmarks):
+    
     index_tip = landmarks[INDEX_FINGER_TIP]
     middle_tip = landmarks[MIDDLE_FINGER_TIP]
     
@@ -199,29 +199,49 @@ def is_H(landmarks):
 def is_I(landmarks):
     
     pinky_straight = finger_is_straight(landmarks, PINKY_MCP, PINKY_PIP, PINKY_TIP)
-
+    pinky_pointing_up = landmarks[PINKY_TIP].y < landmarks[PINKY_MCP].y
     
-    other_fingers_curled = all(finger_is_curled(landmarks, mcp, pip, tip) for mcp, pip, tip in [
-        (THUMB_MCP, THUMB_TIP, THUMB_TIP),
-        (INDEX_FINGER_MCP, INDEX_FINGER_PIP, INDEX_FINGER_TIP),
-        (MIDDLE_FINGER_MCP, MIDDLE_FINGER_PIP, MIDDLE_FINGER_TIP),
-        (RING_FINGER_MCP, RING_FINGER_PIP, RING_FINGER_TIP)
-    ])
-    
-    # Controllo che il mignolo sia sopra le altre dita
-    pinky_high = landmarks[PINKY_TIP].y < landmarks[INDEX_FINGER_TIP].y
 
-    return (pinky_straight and other_fingers_curled and pinky_high)
+    thumb_touches_index = get_distance(landmarks[THUMB_TIP], landmarks[INDEX_FINGER_PIP]) < 0.08
+    
+   
+    other_fingers_curled = all(
+        finger_is_curled(landmarks, mcp, pip, tip) for mcp, pip, tip in [
+            (INDEX_FINGER_MCP, INDEX_FINGER_PIP, INDEX_FINGER_TIP),
+            (MIDDLE_FINGER_MCP, MIDDLE_FINGER_PIP, MIDDLE_FINGER_TIP),
+            (RING_FINGER_MCP, RING_FINGER_PIP, RING_FINGER_TIP)
+        ]
+    )
+    
+   
+    fingers_closed = all(
+        landmarks[tip].y > landmarks[mcp].y for tip, mcp in [
+            (INDEX_FINGER_TIP, INDEX_FINGER_MCP),
+            (MIDDLE_FINGER_TIP, MIDDLE_FINGER_MCP),
+            (RING_FINGER_TIP, RING_FINGER_MCP)
+        ]
+    )
+    
+    
+    pinky_higher = all(
+        landmarks[PINKY_TIP].y < landmarks[tip].y - 0.1 for tip in [
+            INDEX_FINGER_TIP,
+            MIDDLE_FINGER_TIP,
+            RING_FINGER_TIP
+        ]
+    )
+
+    return (pinky_straight and pinky_pointing_up and thumb_touches_index and other_fingers_curled and fingers_closed and pinky_higher)
 
 def is_J(landmarks):
    
     pinky_straight = finger_is_straight(landmarks, PINKY_MCP, PINKY_PIP, PINKY_TIP)
     
-    # Il mignolo deve essere più basso del pollice
+   
     pinky_horizontal_and_low = (landmarks[PINKY_TIP].y > landmarks[THUMB_TIP].y and
                                 abs(landmarks[PINKY_TIP].x - landmarks[PINKY_MCP].x) > 0.1)
     
-    # Controllo che il pollice sia in alto e vicino all'indice
+   
     thumb_on_top = (landmarks[THUMB_TIP].y < landmarks[INDEX_FINGER_TIP].y and
                     abs(landmarks[THUMB_TIP].x - landmarks[INDEX_FINGER_MCP].x) < 0.1)
 
@@ -238,14 +258,13 @@ def is_K(landmarks):
     index_straight = finger_is_straight(landmarks, INDEX_FINGER_MCP, INDEX_FINGER_PIP, INDEX_FINGER_TIP)
     middle_straight = finger_is_straight(landmarks, MIDDLE_FINGER_MCP, MIDDLE_FINGER_PIP, MIDDLE_FINGER_TIP)
 
-    # L'indice è più in alto del medio (forma un angolo)
+   
     index_higher_than_middle = landmarks[INDEX_FINGER_TIP].y < landmarks[MIDDLE_FINGER_TIP].y
 
     
     ring_curled = finger_is_curled(landmarks, RING_FINGER_MCP, RING_FINGER_PIP, RING_FINGER_TIP)
     pinky_curled = finger_is_curled(landmarks, PINKY_MCP, PINKY_PIP, PINKY_TIP)
 
-    #le dita non puntino verso il basso
     fingers_not_down = (landmarks[INDEX_FINGER_TIP].y < landmarks[INDEX_FINGER_MCP].y and
                        landmarks[MIDDLE_FINGER_TIP].y < landmarks[MIDDLE_FINGER_MCP].y)
 
@@ -258,7 +277,7 @@ def is_L(landmarks):
     index_straight = finger_is_straight(landmarks, INDEX_FINGER_MCP, INDEX_FINGER_PIP, INDEX_FINGER_TIP)
     
     thumb_horizontal = (
-        abs(landmarks[THUMB_TIP].y - landmarks[THUMB_MCP].y) < 0.15 and  
+        abs(landmarks[THUMB_TIP].y - landmarks[THUMB_MCP].y) < 0.12 and  
         landmarks[THUMB_TIP].x < landmarks[INDEX_FINGER_MCP].x and  
         landmarks[THUMB_TIP].y > landmarks[INDEX_FINGER_MCP].y  
     )
@@ -283,7 +302,7 @@ def is_M(landmarks):
     ])
     
     fingers_down = all(
-        landmarks[tip].y > landmarks[mcp].y + 0.05  # Devono essere significativamente più in basso
+        landmarks[tip].y > landmarks[mcp].y + 0.05  
         for tip, mcp in [
             (INDEX_FINGER_TIP, INDEX_FINGER_MCP),
             (MIDDLE_FINGER_TIP, MIDDLE_FINGER_MCP),
@@ -383,7 +402,20 @@ def is_O(landmarks):
             fingers_grouped and fingers_close_to_thumb and fingers_touch_thumb and 
             not_fully_closed)
 
-#Vedi che manca la P ricordatelo
+def is_P(landmarks):
+
+    index_straight = get_distance(landmarks[INDEX_FINGER_TIP], landmarks[INDEX_FINGER_PIP]) > 0.05
+    index_horizontal = abs(landmarks[INDEX_FINGER_TIP].y - landmarks[INDEX_FINGER_MCP].y) < 0.18  # Tolleranza per la posizione
+    
+    middle_straight = get_distance(landmarks[MIDDLE_FINGER_TIP], landmarks[MIDDLE_FINGER_PIP]) > 0.05
+    middle_pointing_down = landmarks[MIDDLE_FINGER_TIP].y > landmarks[MIDDLE_FINGER_MCP].y
+    
+    thumb_touching_middle = get_distance(landmarks[THUMB_TIP], landmarks[MIDDLE_FINGER_TIP]) < 0.05
+    
+    ring_curled = get_distance(landmarks[RING_FINGER_TIP], landmarks[RING_FINGER_MCP]) < 0.13
+    pinky_curled = get_distance(landmarks[PINKY_TIP], landmarks[PINKY_MCP]) < 0.13
+    
+    return (index_straight and index_horizontal and middle_straight and middle_pointing_down and thumb_touching_middle and ring_curled and pinky_curled)
 
 def is_Q(landmarks):
 
@@ -392,7 +424,7 @@ def is_Q(landmarks):
             landmarks[INDEX_FINGER_MCP], 
             landmarks[INDEX_FINGER_PIP], 
             landmarks[INDEX_FINGER_TIP]
-        ) < 2.7  # Angolo più permissivo per consentire una leggera piegatura
+        ) < 2.5  # Angolo più permissivo per consentire una leggera piegatura
     )
     
     index_pointing_down = landmarks[INDEX_FINGER_TIP].y > landmarks[INDEX_FINGER_MCP].y
@@ -403,7 +435,7 @@ def is_Q(landmarks):
         landmarks[THUMB_TIP].y > landmarks[THUMB_MCP].y
     )
     
-    # Verifica che medio, anulare e mignolo siano piegati verso il basso
+    
     other_fingers_curled_down = all(
         landmarks[tip].y > landmarks[mcp].y and
         get_distance(landmarks[tip], landmarks[mcp]) < 0.3
@@ -414,21 +446,34 @@ def is_Q(landmarks):
         ]
     )
     
-    return (index_slightly_bent and 
-            index_pointing_down and 
-            thumb_straight_down and 
-            other_fingers_curled_down)
+    return (index_slightly_bent and index_pointing_down and thumb_straight_down and other_fingers_curled_down)
 
-#Vedi che manca pure la R ricordatelo
+def is_R(landmarks):
+   
+    index_straight = finger_is_straight(landmarks, INDEX_FINGER_MCP, INDEX_FINGER_PIP, INDEX_FINGER_TIP)
+    
+    middle_straight = finger_is_straight(landmarks, MIDDLE_FINGER_MCP, MIDDLE_FINGER_PIP, MIDDLE_FINGER_TIP)
+    
+    index_middle_crossed = get_distance(landmarks[INDEX_FINGER_TIP], landmarks[MIDDLE_FINGER_TIP]) < 0.04
+
+    ring_curled = finger_is_curled(landmarks, RING_FINGER_MCP, RING_FINGER_PIP, RING_FINGER_TIP)
+    pinky_curled = finger_is_curled(landmarks, PINKY_MCP, PINKY_PIP, PINKY_TIP)
+
+    
+    index_middle_tolerance = abs(landmarks[INDEX_FINGER_TIP].x - landmarks[MIDDLE_FINGER_TIP].x) < 0.05
+
+    return (index_straight and middle_straight and index_middle_crossed and 
+            ring_curled and pinky_curled and index_middle_tolerance)
 
 def is_S(landmarks):
-
+    
     thumb_horizontal = (
-        abs(landmarks[THUMB_TIP].y - landmarks[THUMB_MCP].y) < 0.10 and  
+        abs(landmarks[THUMB_TIP].y - landmarks[THUMB_MCP].y) < 0.1 and  
         landmarks[THUMB_TIP].x < landmarks[INDEX_FINGER_MCP].x and  
         landmarks[THUMB_TIP].y > landmarks[INDEX_FINGER_MCP].y  
     )
 
+    
     fingers_closed = all(finger_is_closed(landmarks, tip, mcp) for tip, mcp in [
         (INDEX_FINGER_TIP, INDEX_FINGER_MCP),
         (MIDDLE_FINGER_TIP, MIDDLE_FINGER_MCP),
@@ -460,7 +505,19 @@ def is_T(landmarks):
 
     return (thumb_is_straight and index_is_straight and index_is_horizontal and fingers_closed)
 
-#Vedi che bisogna lavorare sulla U 
+def is_U(landmarks):
+    
+    index_straight = finger_is_straight(landmarks, INDEX_FINGER_MCP, INDEX_FINGER_PIP, INDEX_FINGER_TIP)
+    middle_straight = finger_is_straight(landmarks, MIDDLE_FINGER_MCP, MIDDLE_FINGER_PIP, MIDDLE_FINGER_TIP)
+
+    
+    ring_closed = finger_is_curled(landmarks, RING_FINGER_MCP, RING_FINGER_PIP, RING_FINGER_TIP)
+    thumb_on_ring = get_distance(landmarks[THUMB_TIP], landmarks[RING_FINGER_MCP]) < 0.1
+    
+    
+    index_middle_tolerance = get_distance(landmarks[INDEX_FINGER_TIP], landmarks[MIDDLE_FINGER_TIP]) < 0.05
+
+    return index_straight and middle_straight and ring_closed and thumb_on_ring and index_middle_tolerance
 
 def is_V(landmarks): 
     index_tip = landmarks[INDEX_FINGER_TIP]
@@ -489,7 +546,7 @@ def is_W(landmarks):
     thumb_on_pinky = get_distance(landmarks[THUMB_TIP], landmarks[PINKY_MCP]) < 0.1
 
     fingers_straight = (get_distance(index_tip, middle_tip) > 0.09)
-    fingers_straight_ring= (get_distance(middle_tip, ring_tip) > 0.09)
+    fingers_straight_ring= (get_distance(middle_tip, ring_tip) > 0.07)
     
     return (index_straight and middle_straight and ring_straight and thumb_on_pinky and fingers_straight and fingers_straight_ring)
 
@@ -503,7 +560,7 @@ def is_X(landmarks):
         (PINKY_TIP, PINKY_MCP)
     ])
 
-    index_height_threshold = 0.1 
+    index_height_threshold = 0.13
     index_height = landmarks[INDEX_FINGER_TIP].y - landmarks[INDEX_FINGER_MCP].y  # Altezza dell'indice
     index_is_at_correct_height = abs(index_height) < index_height_threshold 
 
@@ -511,7 +568,30 @@ def is_X(landmarks):
 
     return index_curved and other_fingers_closed and thumb_touch_middle and index_is_at_correct_height
 
-
+def is_Y(landmarks):
+   
+    thumb_extended = get_distance(landmarks[THUMB_TIP], landmarks[THUMB_MCP]) > 0.05
+    pinky_extended = get_distance(landmarks[PINKY_TIP], landmarks[PINKY_PIP]) > 0.05
+    
+   
+    index_curled = get_distance(landmarks[INDEX_FINGER_TIP], landmarks[INDEX_FINGER_MCP]) < 0.1
+    middle_curled = get_distance(landmarks[MIDDLE_FINGER_TIP], landmarks[MIDDLE_FINGER_MCP]) < 0.1
+    ring_curled = get_distance(landmarks[RING_FINGER_TIP], landmarks[RING_FINGER_MCP]) < 0.1
+    
+ 
+    thumb_up = landmarks[THUMB_TIP].y < landmarks[THUMB_IP].y
+    pinky_up = landmarks[PINKY_TIP].y < landmarks[PINKY_PIP].y
+    
+  
+    thumb_pinky_spread = get_distance(landmarks[THUMB_TIP], landmarks[PINKY_TIP]) > 0.2
+    
+   
+    thumb_correct_position = (landmarks[THUMB_TIP].x > landmarks[INDEX_FINGER_MCP].x)
+    
+    return (thumb_extended and pinky_extended and 
+            index_curled and middle_curled and ring_curled and
+            thumb_up and pinky_up and 
+            thumb_pinky_spread and thumb_correct_position)
 
 def recognize_letter(landmarks):
     
@@ -545,17 +625,17 @@ def recognize_letter(landmarks):
         return 'N'
     elif is_O(landmarks):
         return 'O'
-    #elif is_P(landmarks):
+    elif is_P(landmarks):
         return 'P'
     elif is_Q(landmarks):
         return 'Q'
-    #elif is_R(landmarks):
+    elif is_R(landmarks):
         return 'R'
     elif is_S(landmarks):
         return 'S'
     elif is_T(landmarks):
         return 'T'
-    #elif is_U(landmarks):
+    elif is_U(landmarks):
         return 'U'
     elif is_V(landmarks):
         return 'V'
@@ -563,5 +643,7 @@ def recognize_letter(landmarks):
         return 'W'
     elif is_X(landmarks):
         return 'X'
+    elif is_Y(landmarks):
+        return 'Y'
     else:
-        return 'NF'
+        return ''
