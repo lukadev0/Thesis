@@ -2,6 +2,7 @@ import cv2
 import mediapipe as mp
 from landmark_geometry import recognize_letter
 import time
+from text_to_speech import create_synthesizer
 
 def is_right_hand(landmarks, mirrored=True):
     if mirrored:
@@ -52,6 +53,8 @@ capture = cv2.VideoCapture(0)
 capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)  
 capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+synthesizer = create_synthesizer() # Inizializzo il sintetizzatore
 
 while capture.isOpened():
     success, image = capture.read()
@@ -147,6 +150,7 @@ while capture.isOpened():
                 
                 elif current_letter and (current_time - letter_start_time >= LETTER_SAVE_DELAY):
                         saved_letters.append(current_letter)
+                        synthesizer.speak_letter(current_letter) 
                         letter_start_time = current_time
                 
                 if current_letter:
@@ -168,6 +172,8 @@ while capture.isOpened():
             phrase_shown = True
             detection_started = False
             hand_detection_start_time = None
+            
+            synthesizer.speak_phrase(current_phrase)
         
         if not detection_started: #reset del timer per la detection delle mani nel caso in cui le faccio sparire dell'inquadratura
             hand_detection_start_time = None
@@ -182,3 +188,4 @@ while capture.isOpened():
 
 capture.release()
 cv2.destroyAllWindows()
+synthesizer.cleanup()
