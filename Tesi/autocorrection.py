@@ -13,7 +13,7 @@ class AutoCorrector: # Inizializzo il sistema di autocorrezione usando SpellChec
                 "alessandro", "luca", "mario", "giorgio", "vincenzo",
                 "davide", "alberto", "riccardo", "filippo", "daniele",
                 "michele", "salvatore", "lorenzo", "simone", "nicola",
-                "emanuele","christian", "cristian",
+                "emanuele","christian",
                 
                 "maria", "anna", "lucia", "sofia", "giulia",
                 "sara", "laura", "valentina", "chiara", "francesca",
@@ -77,7 +77,7 @@ class AutoCorrector: # Inizializzo il sistema di autocorrezione usando SpellChec
         corrections = []
         corrected_words = []
         all_candidates = {}
-    
+        
         for word in words:
             # Salta la correzione per parole molto corte o spazi
             if len(word) <= 2 or word.isspace():
@@ -86,10 +86,9 @@ class AutoCorrector: # Inizializzo il sistema di autocorrezione usando SpellChec
                 
             corrected_word, confidence = self.find_closest_word(word)
             
-            # Preservo il formato originale (maiuscolo per evitare che a schermo mi veda il minuscolo)
+            # Preserva il formato originale (maiuscolo/minuscolo)
             if word.isupper():
                 corrected_word = corrected_word.upper()
-            
             elif word[0].isupper():
                 corrected_word = corrected_word.capitalize()
                 
@@ -100,17 +99,25 @@ class AutoCorrector: # Inizializzo il sistema di autocorrezione usando SpellChec
                 corrections.append((word, corrected_word, confidence))
                 all_candidates[word] = list(self.spell.candidates(word))
         
-            return ' '.join(corrected_words), corrections, all_candidates
+        return ' '.join(corrected_words), corrections, all_candidates
 
-    '''def cleanup(self): 
+    
+    def add_words(self, words: List[str]): # aggiunta di parole nuove nel dizionario
+        for word in words:
+            self.spell.word_frequency.add(word)
+
+    def cleanup(self):
         try:
+            # Pulizia del dizionario
+            self.spell.word_frequency.dictionary = {}
+            
             # Rimozione delle referenze
             self.spell = None
             self.phonetic_rules = None
             self.common_errors = None
             self.word_patterns = None
         except Exception as e:
-            print(f"Errore durante il cleanup dell'AutoCorrector: {e}")'''
+            print(f"Errore durante il cleanup dell'AutoCorrector: {e}")
 
 def create_autocorrector() -> AutoCorrector: #creazione dell'istanza di autocorrector
     return AutoCorrector()
