@@ -129,9 +129,11 @@ def is_E(landmarks):
         (RING_FINGER_MCP, RING_FINGER_PIP, RING_FINGER_TIP),
         (PINKY_MCP, PINKY_PIP, PINKY_TIP)
     ])
+
+    thumb_not_horizontal = abs(landmarks[THUMB_TIP].y - landmarks[THUMB_MCP].y) > 0.07
     
     thumb_folded = get_distance(landmarks[THUMB_TIP], landmarks[INDEX_FINGER_MCP]) < 0.12
-    return ( all_fingers_curled and thumb_folded )
+    return ( all_fingers_curled and thumb_folded and thumb_not_horizontal )
 
 def is_F(landmarks):
     thumb_tip = landmarks[THUMB_TIP]
